@@ -257,8 +257,8 @@ typedef union
 // NOTE: This struct must match the one defined in CLMiner.cpp
 struct SearchResults
 {
-    uint count;
     uint hashCount;
+    uint count;
     volatile uint abort;
     struct
     {

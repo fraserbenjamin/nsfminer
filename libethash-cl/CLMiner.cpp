@@ -255,8 +255,8 @@ CLMiner::~CLMiner()
 // ethash.cl
 struct SearchResults
 {
-    uint32_t count;
     uint32_t hashCount;
+    uint32_t count;
     uint32_t abort;
     struct
     {
@@ -293,8 +293,9 @@ void CLMiner::workLoop()
             if (m_queue)
             {
                 // no need to read the abort flag.
-                m_queue->enqueueReadBuffer(*m_searchBuffer, CL_TRUE, offsetof(SearchResults, count),
-                    2 * sizeof(results.count), (void*)&results.count);
+                m_queue->enqueueReadBuffer(*m_searchBuffer, CL_TRUE,
+                    offsetof(SearchResults, hashCount), 2 * sizeof(results.hashCount),
+                    (void*)&results.hashCount);
                 if (results.count)
                 {
                     if (results.count > c_maxSearchResults) {
@@ -306,7 +307,7 @@ void CLMiner::workLoop()
                 }
                 // clean the solution count, hash count, and abort flag
                 m_queue->enqueueWriteBuffer(*m_searchBuffer, CL_FALSE,
-                    offsetof(SearchResults, count), sizeof(zerox3), zerox3);
+                    offsetof(SearchResults, hashCount), sizeof(zerox3), zerox3);
             }
             else
                 results.count = 0;
@@ -341,7 +342,7 @@ void CLMiner::workLoop()
                 m_queue->enqueueWriteBuffer(*m_header, CL_FALSE, 0, w.header.size, w.header.data());
                 // zero the result count
                 m_queue->enqueueWriteBuffer(*m_searchBuffer, CL_FALSE,
-                    offsetof(SearchResults, count), sizeof(zerox3), zerox3);
+                    offsetof(SearchResults, hashCount), sizeof(zerox3), zerox3);
 
                 m_searchKernel.setArg(0, *m_searchBuffer);  // Supply output buffer to kernel.
                 m_searchKernel.setArg(1, *m_header);        // Supply header buffer to kernel.

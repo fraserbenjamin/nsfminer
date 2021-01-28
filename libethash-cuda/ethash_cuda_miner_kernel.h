@@ -23,13 +23,13 @@ struct Search_Result
 
 struct count_pair
 {
-    uint32_t solCount, hashCount;
+    uint32_t hashCount, solCount;
 };
 
 struct Search_results
 {
-    volatile uint32_t done;
     struct count_pair counts;
+    volatile uint32_t done;
     Search_Result results[MAX_SEARCH_RESULTS];
 };
 
