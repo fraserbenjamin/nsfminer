@@ -15,6 +15,9 @@
 
 #include <boost/format.hpp>
 
+#define MAX_RESULTS 4
+#define MAX_STREAMS 4
+
 using namespace std;
 
 namespace dev
@@ -323,8 +326,33 @@ public:
     bool m_initialized = false;
 
 protected:
+    struct SearchResults
+    {
+        uint32_t hashCount;
+        uint32_t count;
+        uint32_t abort;
+        struct
+        {
+            uint32_t gid;
+            // Can't use h256 data type here since h256 contains
+            // more than raw data. Kernel returns raw mix hash.
+            uint32_t mix[8];
+            uint32_t pad[7];  // pad to 16 words for easy indexing
+        } rslt[MAX_RESULTS];
+    };
+
     virtual bool initDevice() = 0;
     virtual bool initEpoch() = 0;
+    virtual void miner_set_header(const h256& header) = 0;
+    virtual void miner_set_target(uint64_t _target) = 0;
+    virtual uint32_t miner_get_streams() = 0;
+    virtual uint32_t miner_get_stream_blocks() = 0;
+    virtual void miner_clear_counts(uint32_t streamIdx) = 0;
+    virtual void miner_adjust_work_multiple() = 0;
+    virtual void miner_reset_device() = 0;
+    virtual void miner_search(
+        uint32_t streamIdx, SearchResults& search_buf, uint64_t start_nonce) = 0;
+    virtual void miner_sync(uint32_t streamIdx) = 0;
 
     WorkPackage work() const;
     void ReportSolution(const h256& header, uint64_t nonce);
@@ -348,10 +376,11 @@ protected:
     std::condition_variable m_new_work_signal;
 
     uint32_t m_block_multiple;
+    uint64_t m_current_target = 0;
 
 private:
     void search(
-        uint8_t const* header, uint64_t target, uint64_t _startN, const dev::eth::WorkPackage& w);
+        const h256& header, uint64_t target, uint64_t start_nonce, const dev::eth::WorkPackage& w);
 
     bitset<MinerPauseEnum::Pause_MAX> m_pauseFlags;
 

@@ -54,6 +54,16 @@ protected:
 
     void kick_miner() override;
 
+    void miner_set_header(const h256& header) override;
+    void miner_set_target(uint64_t _target) override;
+    uint32_t miner_get_streams() override;
+    uint32_t miner_get_stream_blocks() override;
+    void miner_clear_counts(uint32_t streamIdx) override;
+    void miner_adjust_work_multiple() override;
+    void miner_reset_device() override;
+    void miner_search(uint32_t streamIdx, SearchResults& search_buf, uint64_t start_nonce) override;
+    void miner_sync(uint32_t streamIdx) override;
+
 private:
     
     void workLoop() override;

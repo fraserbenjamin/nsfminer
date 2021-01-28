@@ -40,7 +40,7 @@ bool CUDAMiner::initDevice()
         CUDA_CALL(cudaSetDevice(m_deviceDescriptor.cuDeviceIndex));
         CUDA_CALL(cudaDeviceReset());
     }
-    catch (const cuda_runtime_error& ec)
+    catch (const runtime_error& ec)
     {
         cnote << "Could not set CUDA device on Pci Id " << m_deviceDescriptor.uniqueId
               << " Error : " << ec.what();
@@ -118,7 +118,7 @@ bool CUDAMiner::initEpoch()
                                                   chrono::steady_clock::now() - startInit)
                                                            .count()));
     }
-    catch (const cuda_runtime_error& ec)
+    catch (const runtime_error& ec)
     {
         cnote << "Unexpected error " << ec.what() << " on CUDA device "
               << m_deviceDescriptor.uniqueId;
@@ -185,7 +185,7 @@ void CUDAMiner::workLoop()
         // Reset miner and stop working
         CUDA_CALL(cudaDeviceReset());
     }
-    catch (cuda_runtime_error const& _e)
+    catch (runtime_error const& _e)
     {
         string _what = "GPU error: ";
         _what.append(_e.what());
@@ -270,7 +270,7 @@ void CUDAMiner::enumDevices(map<string, DeviceDescriptor>& _DevicesCollection)
 
             _DevicesCollection[uniqueId] = deviceDescriptor;
         }
-        catch (const cuda_runtime_error& _e)
+        catch (const runtime_error& _e)
         {
             ccrit << _e.what();
         }

@@ -63,11 +63,6 @@ void run_ethash_search(uint32_t gridSize, uint32_t blockSize, cudaStream_t strea
     Search_results* g_output, uint64_t start_nonce);
 void ethash_generate_dag(uint64_t dag_size, uint32_t blocks, uint32_t threads, cudaStream_t stream);
 
-struct cuda_runtime_error : public virtual std::runtime_error
-{
-    cuda_runtime_error(const std::string& msg) : std::runtime_error(msg) {}
-};
-
 #define CUDA_CALL(call)                                                                   \
     do                                                                                    \
     {                                                                                     \
@@ -77,6 +72,6 @@ struct cuda_runtime_error : public virtual std::runtime_error
             std::stringstream ss;                                                         \
             ss << "CUDA error in func " << __FUNCTION__ << " at line " << __LINE__ << ' ' \
                << cudaGetErrorString(err);                                                \
-            throw cuda_runtime_error(ss.str());                                           \
+            throw std::runtime_error(ss.str());                                           \
         }                                                                                 \
     } while (0)
