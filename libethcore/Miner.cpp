@@ -155,6 +155,14 @@ void Miner::updateHashRate(uint32_t _groupSize, uint32_t _increment) noexcept
     m_groupCount = 0;
 }
 
+void Miner::workLoop()
+{
+}
+
+void Miner::search(
+        uint8_t const* header, uint64_t target, uint64_t _startN, const dev::eth::WorkPackage& w)
+{
+}
 
 }  // namespace eth
 }  // namespace dev

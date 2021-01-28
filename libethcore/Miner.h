@@ -303,6 +303,8 @@ public:
 
     ~Miner() override = default;
 
+    void workLoop();
+
     DeviceDescriptor getDescriptor();
     void setWork(WorkPackage const& _work);
     void setEpoch(EpochContext const& _ec) { m_epochContext = _ec; }
@@ -348,6 +350,9 @@ protected:
     uint32_t m_block_multiple;
 
 private:
+    void search(
+        uint8_t const* header, uint64_t target, uint64_t _startN, const dev::eth::WorkPackage& w);
+
     bitset<MinerPauseEnum::Pause_MAX> m_pauseFlags;
 
     WorkPackage m_work;
