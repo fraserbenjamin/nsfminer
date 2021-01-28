@@ -28,7 +28,7 @@ void Miner::setWork(WorkPackage const& _work)
         m_workSwitchStart = chrono::steady_clock::now();
 #endif
     }
-    kick_miner();
+    miner_kick();
 }
 
 void Miner::ReportSolution(const h256& header, uint64_t nonce)
@@ -62,7 +62,7 @@ void Miner::pause(MinerPauseEnum what)
     lock_guard<mutex> l(x_pause);
     m_pauseFlags.set(what);
     m_work.header = h256();
-    kick_miner();
+    miner_kick();
 }
 
 bool Miner::paused()
@@ -161,9 +161,9 @@ void Miner::workLoop()
     WorkPackage current;
     current.header = h256();
 
-    if (!initDevice())
+    if (!miner_init_device())
         return;
-
+    m_gpuInitialized.store(true);
     try
     {
         while (!shouldStop())
@@ -171,8 +171,8 @@ void Miner::workLoop()
             const WorkPackage w = work();
             if (!w)
             {
-                m_hung_miner.store(false);
                 unique_lock<mutex> l(miner_work_mutex);
+		// must be less than telemetry interval
                 m_new_work_signal.wait_for(l, chrono::seconds(3));
                 continue;
             }
@@ -180,8 +180,10 @@ void Miner::workLoop()
             // Epoch change ?
             if (current.epoch != w.epoch)
             {
-                if (!initEpoch())
+		m_resourceInitialized.store(false);
+                if (!miner_init_epoch())
                     break;
+		m_resourceInitialized.store(true);
 
                 // As DAG generation takes a while we need to
                 // ensure we're on latest job, not on the one
@@ -196,19 +198,17 @@ void Miner::workLoop()
 
             uint64_t upper64OfBoundary = (uint64_t)(u64)((u256)current.boundary >> 192);
 
-            miner_adjust_work_multiple();
-
             // Eventually start searching
             search(current.header, upper64OfBoundary, current.startNonce, w);
         }
 
-        // Reset miner and stop working
-        miner_reset_device();
     }
     catch (const runtime_error& e)
     {
         throw runtime_error(string("GPU error: ") + e.what());
     }
+    // Reset miner and stop working
+    miner_reset_device();
 }
 
 void Miner::search(
@@ -220,24 +220,25 @@ void Miner::search(
         miner_set_target(target);
         m_current_target = target;
     }
-    const uint32_t streams(miner_get_streams());
-    const uint32_t stream_blocks(miner_get_stream_blocks());
-    const uint32_t batch_blocks(streams * stream_blocks);
+    Block_sizes bs;
+    miner_get_block_sizes(bs);
+    const uint32_t batch_blocks(bs.streams * bs.stream_size);
+ccrit << bs.block_size << " " << bs.streams << " " << bs.stream_size << " " << batch_blocks;
 
     // NOTE: The following struct must match the one defined in
     // ethash.cl
-    struct SearchResults search_buf[MAX_STREAMS];
+    struct Search_results search_buf[MAX_STREAMS];
 
     // prime each stream, clear search result buffers and start the search
-    for (uint32_t streamIdx = 0; streamIdx < streams; streamIdx++, start_nonce += batch_blocks)
+    for (uint32_t streamIdx = 0; streamIdx < bs.streams; streamIdx++, start_nonce += batch_blocks)
     {
         miner_clear_counts(streamIdx);
         m_hung_miner.store(false);
-        miner_search(streamIdx, search_buf[streamIdx], start_nonce);
+        miner_search(streamIdx, start_nonce);
     }
 
     bool done(false);
-    uint32_t streams_bsy((1 << streams) - 1);
+    uint32_t streams_bsy((1 << bs.streams) - 1);
 
     // process stream batches until we get new work.
 
@@ -249,37 +250,34 @@ void Miner::search(
         uint32_t batchCount(0);
 
         // This inner loop will process each cuda stream individually
-        for (uint32_t streamIdx = 0; streamIdx < streams; streamIdx++, start_nonce += batch_blocks)
+        for (uint32_t streamIdx = 0; streamIdx < bs.streams; streamIdx++, start_nonce += batch_blocks)
         {
             uint32_t stream_mask(1 << streamIdx);
             if (!(streams_bsy & stream_mask))
                 continue;
 
-            struct SearchResults& r(search_buf[streamIdx]);
-
             // Wait for the stream complete
-            miner_sync(streamIdx);
+            miner_sync(streamIdx, search_buf[streamIdx]);
 
             // clear solution count, hash count and done
             miner_clear_counts(streamIdx);
 
-            if (r.count > MAX_RESULTS)
-                r.count = MAX_RESULTS;
-            batchCount += r.hashCount;
+            Search_results& r(search_buf[streamIdx]);
+            batchCount += r.counts.hashCount;
 
             if (done)
                 streams_bsy &= ~stream_mask;
             else
             {
                 m_hung_miner.store(false);
-                miner_search(streamIdx, search_buf[streamIdx], start_nonce);
+                miner_search(streamIdx, start_nonce);
             }
 
-            if (r.count)
-                for (uint32_t i = 0; i < r.count; i++)
+            if (r.counts.solCount)
+                for (uint32_t i = 0; i < r.counts.solCount; i++)
                 {
-                    uint64_t nonce(start_nonce - stream_blocks + r.rslt[i].gid);
-                    h256 mix((::byte*)&r.rslt[i].mix, h256::ConstructFromPointer);
+                    uint64_t nonce(start_nonce - bs.stream_size + r.results[i].gid);
+                    h256 mix((::byte*)&r.results[i].mix, h256::ConstructFromPointer);
 
                     Farm::f().submitProof(
                         Solution{nonce, mix, w, chrono::steady_clock::now(), m_index});
@@ -288,7 +286,7 @@ void Miner::search(
             if (shouldStop())
                 done = true;
         }
-        updateHashRate(m_deviceDescriptor.cuBlockSize, batchCount);
+        updateHashRate(bs.block_size, batchCount);
     }
 
 #ifdef DEV_BUILD

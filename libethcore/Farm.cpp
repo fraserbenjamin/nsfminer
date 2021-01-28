@@ -269,7 +269,7 @@ void Farm::stop()
             for (auto const& miner : m_miners)
             {
                 miner->triggerStopWorking();
-                miner->kick_miner();
+                miner->miner_kick();
             }
             m_miners.clear();
             m_isMining.store(false, memory_order_relaxed);
@@ -447,7 +447,7 @@ void Farm::checkForHungMiners()
 {
     // Process miners
     for (auto const& miner : m_miners)
-        if (!miner->paused() && miner->m_initialized)
+        if (!miner->paused() && miner->gpuInitialized())
         {
             if (miner->m_hung_miner.load())
             {
@@ -459,6 +459,8 @@ void Farm::checkForHungMiners()
             }
             miner->m_hung_miner.store(true);
         }
+	else
+            miner->m_hung_miner.store(false);
 }
 
 // Collects data about hashing and hardware status

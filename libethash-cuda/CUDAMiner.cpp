@@ -17,14 +17,14 @@ CUDAMiner::CUDAMiner(unsigned _index, DeviceDescriptor& _device) : Miner("cu-", 
 CUDAMiner::~CUDAMiner()
 {
     stopWorking();
-    kick_miner();
+    miner_kick();
 }
 
 #define HostToDevice(dst, src, siz) CUDA_CALL(cudaMemcpy(dst, src, siz, cudaMemcpyHostToDevice))
 
 #define DeviceToHost(dst, src, siz) CUDA_CALL(cudaMemcpy(dst, src, siz, cudaMemcpyDeviceToHost))
 
-bool CUDAMiner::initDevice()
+bool CUDAMiner::miner_init_device()
 {
     cnote << "Using Pci " << m_deviceDescriptor.uniqueId << ": " << m_deviceDescriptor.cuName
           << " (Compute " + m_deviceDescriptor.cuCompute + ") Memory : "
@@ -50,9 +50,8 @@ bool CUDAMiner::initDevice()
     return true;
 }
 
-bool CUDAMiner::initEpoch()
+bool CUDAMiner::miner_init_epoch()
 {
-    m_initialized = false;
     // If we get here it means epoch has changed so it's not necessary
     // to check again dag sizes. They're changed for sure
     m_current_target = 0;
@@ -127,10 +126,10 @@ bool CUDAMiner::initEpoch()
         return false;
     }
 
-    m_initialized = true;
     return true;
 }
 
+#if 0
 void CUDAMiner::workLoop()
 {
     WorkPackage current;
@@ -192,8 +191,9 @@ void CUDAMiner::workLoop()
         throw runtime_error(_what);
     }
 }
+#endif
 
-void CUDAMiner::kick_miner()
+void CUDAMiner::miner_kick()
 {
     static const uint32_t one = 1;
     if (!m_done)
@@ -277,6 +277,7 @@ void CUDAMiner::enumDevices(map<string, DeviceDescriptor>& _DevicesCollection)
     }
 }
 
+#if 0
 static const uint32_t zero3[3] = {0, 0, 0};  // zero the result count
 
 void CUDAMiner::search(
@@ -376,3 +377,19 @@ void CUDAMiner::search(
               << " us.";
 #endif
 }
+#endif
+
+void CUDAMiner::miner_clear_counts(uint32_t streamIdx) {}
+
+void CUDAMiner::miner_reset_device() {}
+
+void CUDAMiner::miner_search(uint32_t streamIdx, uint64_t start_nonce) {}
+
+void CUDAMiner::miner_sync(uint32_t streamIdx, Search_results& search_buf) {}
+
+void CUDAMiner::miner_set_header(const h256& header) {}
+
+void CUDAMiner::miner_set_target(uint64_t _target) {}
+
+void CUDAMiner::miner_get_block_sizes(Block_sizes& blks) {}
+
